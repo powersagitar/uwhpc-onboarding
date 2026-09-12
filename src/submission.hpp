@@ -31,41 +31,34 @@ public:
   std::size_t cols() const { return cols_; }
 };
 
-void apply_stencil_on_boundaries(const Grid &old_grid, Grid &new_grid) {
-  const auto rows = old_grid.rows();
-  const auto cols = old_grid.cols();
-
-#pragma omp parallel for
-  for (size_t col = 0; col < cols; ++col) {
-    new_grid(0, col) = old_grid(0, col);
-    new_grid(rows - 1, col) = old_grid(rows - 1, col);
-  }
-
-#pragma omp parallel for
-  for (size_t row = 0; row < rows; ++row) {
-    new_grid(row, 0) = old_grid(row, 0);
-    new_grid(row, cols - 1) = old_grid(row, cols - 1);
-  }
-}
-
-void apply_stencil_on_interior(const Grid &old_grid, Grid &new_grid) {
-  const auto rows = old_grid.rows();
-  const auto cols = old_grid.cols();
-
-#pragma omp parallel for
-  for (std::size_t row = 1; row < rows - 1; ++row) {
-    for (std::size_t col = 1; col < cols - 1; ++col) {
-      new_grid(row, col) =
-          0.5 * old_grid(row, col) +
-          0.125 * (old_grid(row - 1, col) + old_grid(row + 1, col) +
-                   old_grid(row, col - 1) + old_grid(row, col + 1));
-    }
-  }
-}
-
 // Apply the five-point stencil over all interior points, copying the boundary
 // values unchanged from old_grid to new_grid. Implement your solution here.
 void apply_stencil(const Grid &old_grid, Grid &new_grid) {
-  apply_stencil_on_boundaries(old_grid, new_grid);
-  apply_stencil_on_interior(old_grid, new_grid);
+  const auto rows = old_grid.rows();
+  const auto cols = old_grid.cols();
+
+#pragma omp parallel
+  {
+#pragma omp for nowait
+    for (size_t col = 0; col < cols; ++col) {
+      new_grid(0, col) = old_grid(0, col);
+      new_grid(rows - 1, col) = old_grid(rows - 1, col);
+    }
+
+#pragma omp for nowait
+    for (size_t row = 1; row < rows - 1; ++row) {
+      new_grid(row, 0) = old_grid(row, 0);
+      new_grid(row, cols - 1) = old_grid(row, cols - 1);
+    }
+
+#pragma omp for
+    for (std::size_t row = 1; row < rows - 1; ++row) {
+      for (std::size_t col = 1; col < cols - 1; ++col) {
+        new_grid(row, col) =
+            0.5 * old_grid(row, col) +
+            0.125 * (old_grid(row - 1, col) + old_grid(row + 1, col) +
+                     old_grid(row, col - 1) + old_grid(row, col + 1));
+      }
+    }
+  }
 }
