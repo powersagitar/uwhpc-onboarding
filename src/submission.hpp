@@ -1,6 +1,8 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
+#include <iterator>
 #include <vector>
 
 // Starter Grid for the 2D heat-diffusion problem.
@@ -27,8 +29,10 @@ public:
   }
 
   std::size_t rows() const { return rows_; }
-
   std::size_t cols() const { return cols_; }
+
+  std::vector<double> &data() { return grid_; }
+  const std::vector<double> &data() const { return grid_; }
 };
 
 // Apply the five-point stencil over all interior points, copying the boundary
@@ -37,28 +41,23 @@ void apply_stencil(const Grid &old_grid, Grid &new_grid) {
   const auto rows = old_grid.rows();
   const auto cols = old_grid.cols();
 
-#pragma omp parallel
-  {
-#pragma omp for nowait
-    for (size_t col = 0; col < cols; ++col) {
-      new_grid(0, col) = old_grid(0, col);
-      new_grid(rows - 1, col) = old_grid(rows - 1, col);
-    }
+  std::copy(std::cbegin(old_grid.data()), std::cbegin(old_grid.data()) + cols,
+            std::begin(new_grid.data()));
 
-#pragma omp for nowait
-    for (size_t row = 1; row < rows - 1; ++row) {
-      new_grid(row, 0) = old_grid(row, 0);
-      new_grid(row, cols - 1) = old_grid(row, cols - 1);
-    }
+  std::copy(std::cbegin(old_grid.data()) + (rows - 1) * cols,
+            std::cbegin(old_grid.data()) + rows * cols,
+            std::begin(new_grid.data()) + (rows - 1) * cols);
 
-#pragma omp for
-    for (std::size_t row = 1; row < rows - 1; ++row) {
-      for (std::size_t col = 1; col < cols - 1; ++col) {
-        new_grid(row, col) =
-            0.5 * old_grid(row, col) +
-            0.125 * (old_grid(row - 1, col) + old_grid(row + 1, col) +
-                     old_grid(row, col - 1) + old_grid(row, col + 1));
-      }
+#pragma omp parallel for
+  for (std::size_t row = 1; row < rows - 1; ++row) {
+    new_grid(row, 0) = old_grid(row, 0);
+    new_grid(row, cols - 1) = old_grid(row, cols - 1);
+
+    for (std::size_t col = 1; col < cols - 1; ++col) {
+      new_grid(row, col) =
+          0.5 * old_grid(row, col) +
+          0.125 * (old_grid(row - 1, col) + old_grid(row + 1, col) +
+                   old_grid(row, col - 1) + old_grid(row, col + 1));
     }
   }
 }
