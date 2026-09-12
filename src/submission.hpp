@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include <tuple>
 #include <vector>
 
 // Starter Grid for the 2D heat-diffusion problem.
@@ -27,19 +26,22 @@ public:
     return grid_[i * cols_ + j];
   }
 
-  std::tuple<std::size_t, std::size_t> dims() const { return {rows_, cols_}; }
+  std::size_t rows() const { return rows_; }
+
+  std::size_t cols() const { return cols_; }
 };
 
 void apply_stencil_on_boundaries(const Grid &old_grid, Grid &new_grid) {
-  const auto [rows, cols] = old_grid.dims();
+  const auto rows = old_grid.rows();
+  const auto cols = old_grid.cols();
 
-  // top & bottom
+#pragma omp parallel for
   for (size_t col = 0; col < cols; ++col) {
     new_grid(0, col) = old_grid(0, col);
     new_grid(rows - 1, col) = old_grid(rows - 1, col);
   }
 
-  // left & right
+#pragma omp parallel for
   for (size_t row = 0; row < rows; ++row) {
     new_grid(row, 0) = old_grid(row, 0);
     new_grid(row, cols - 1) = old_grid(row, cols - 1);
@@ -47,8 +49,10 @@ void apply_stencil_on_boundaries(const Grid &old_grid, Grid &new_grid) {
 }
 
 void apply_stencil_on_interior(const Grid &old_grid, Grid &new_grid) {
-  const auto [rows, cols] = old_grid.dims();
+  const auto rows = old_grid.rows();
+  const auto cols = old_grid.cols();
 
+#pragma omp parallel for
   for (std::size_t row = 1; row < rows - 1; ++row) {
     for (std::size_t col = 1; col < cols - 1; ++col) {
       new_grid(row, col) =
