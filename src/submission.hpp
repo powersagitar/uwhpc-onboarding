@@ -2,8 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <iterator>
-#include <vector>
+#include <memory>
 
 // Starter Grid for the 2D heat-diffusion problem.
 //
@@ -14,11 +13,12 @@ class Grid {
 private:
   std::size_t rows_;
   std::size_t cols_;
-  std::vector<double> grid_;
+  std::unique_ptr<double[]> grid_;
 
 public:
   Grid(std::size_t rows, std::size_t cols)
-      : rows_(rows), cols_(cols), grid_(rows * cols, 0) {}
+      : rows_(rows), cols_(cols),
+        grid_(std::make_unique<double[]>(rows * cols)) {}
 
   double &operator()(std::size_t i, std::size_t j) {
     return grid_[i * cols_ + j];
@@ -31,8 +31,8 @@ public:
   std::size_t rows() const { return rows_; }
   std::size_t cols() const { return cols_; }
 
-  std::vector<double> &data() { return grid_; }
-  const std::vector<double> &data() const { return grid_; }
+  double *data() { return grid_.get(); }
+  const double *data() const { return grid_.get(); }
 };
 
 // Apply the five-point stencil over all interior points, copying the boundary
@@ -41,12 +41,9 @@ void apply_stencil(const Grid &old_grid, Grid &new_grid) {
   const auto rows = old_grid.rows();
   const auto cols = old_grid.cols();
 
-  std::copy(std::cbegin(old_grid.data()), std::cbegin(old_grid.data()) + cols,
-            std::begin(new_grid.data()));
-
-  std::copy(std::cbegin(old_grid.data()) + (rows - 1) * cols,
-            std::cbegin(old_grid.data()) + rows * cols,
-            std::begin(new_grid.data()) + (rows - 1) * cols);
+  std::copy(old_grid.data(), old_grid.data() + cols, new_grid.data());
+  std::copy(old_grid.data() + (rows - 1) * cols, old_grid.data() + rows * cols,
+            new_grid.data() + (rows - 1) * cols);
 
 #pragma omp parallel for
   for (std::size_t row = 1; row < rows - 1; ++row) {
