@@ -50,6 +50,7 @@ void apply_stencil(const Grid &old_grid, Grid &new_grid) {
     new_grid(row, 0) = old_grid(row, 0);
     new_grid(row, cols - 1) = old_grid(row, cols - 1);
 
+#pragma omp simd
     for (std::size_t col = 1; col < cols - 1; ++col) {
       new_grid(row, col) =
           0.5 * old_grid(row, col) +
